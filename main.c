@@ -74,6 +74,7 @@ Partie *creerPartie(int size){
 }
 
 void deletePartie(Partie *p){
+    if(p == NULL) return;
     free(p->coups);
     for(int i = 0; i < p->size; i++)
         free((p->board[i]));
@@ -106,8 +107,14 @@ void afficherPartie(Partie *p){
      * Il correspond au dernier joueur avant l'arrêt de la partie.
      */
     if (p->stop){
-        setbuf(stdout, NULL);
-        printf("Le gagnant de la partie est : %d\n", p->tour);
+        if(p->tour == -1){
+            setbuf(stdout, NULL);
+            printf("Il y a égalité !\n");
+        } else{
+            setbuf(stdout, NULL);
+            printf("Le gagnant de la partie est : %d\n", p->tour);
+        }
+
     } else {
         setbuf(stdout, NULL);
         printf("Au tour du joueur : %d\n", p->tour);
@@ -166,6 +173,10 @@ int jouerCoup(Partie *p, int coup){
 }
 
 int checkVictory(Partie *p, int coup){
+    if(p->size*p->size == p->cursor){
+        p->tour -1;
+        return 1;
+    }
     coup -= 1;
     int ligne = coup / p->size , colonne = coup % p->size;
     int counter = 1;
@@ -291,12 +302,9 @@ int main(){
                         coup = coupJoueur(p);
                     }
                     setbuf(stdout, NULL);
-                    printf("v? :%d",checkVictory(p, coup));
                     if(checkVictory(p, coup)){
                         p->stop = 1;
-                    } else if(){
-                        p->stop = 1;
-                        p->tour -1;
+                        afficherPartie(p);
                     }else{
                         if(p->tour == 1){
                             p->tour = 2;
