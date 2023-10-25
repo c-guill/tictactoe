@@ -8,13 +8,15 @@
 
 #define MAX 5
 typedef struct Partie Partie;
-
+//srand(null)
 struct Partie {
     int size; // size*size = taille board
     int **board; // Matrice pour le board
     int stop; // Boolean si la partie est terminé
     int tour; // Le tour de la personne qui doit jouer, -1 si la partie est terminé
     int max;
+    int *coups;
+    int cursor;
 };
 
 /*
@@ -30,7 +32,13 @@ Partie *creerPartie(int size){
         fprintf(stderr,"Malloc error\n");
         return NULL;
     }
+    if((p->coups = malloc(sizeof(int)*size*size)) == NULL){
+        free(p);
+        setbuf(stdout, NULL);
+        fprintf(stderr,"Malloc error\n");
+    }
     if((p->board = malloc(sizeof(int *) * size)) == NULL){
+        free(p->coups);
         free(p);
         setbuf(stdout, NULL);
         fprintf(stderr,"Malloc error\n");
@@ -41,6 +49,7 @@ Partie *creerPartie(int size){
             for(int j = 0 ; j < i; j++) {
                 free(p->board[j]);
             }
+            free(p->coups);
             free(p->board);
             free(p);
             setbuf(stdout, NULL);
@@ -55,12 +64,39 @@ Partie *creerPartie(int size){
             p->board[i][j] = (j + 1) + ((i) * size);
         }
     }
+
     p->size = size;
     p->stop = 0;
     p->tour = 1;
+    p->cursor = 0;
     p->max = (p->size > MAX) ? MAX : p->size;
     return p;
 }
+
+void deletePartie(Partie *p){
+    free(p->coups);
+    for(int i = 0; i < p->size; i++)
+        free((p->board[i]));
+    free(p->board);
+    free(p);
+
+}
+
+int savePartie(char *pathname, Partie *p){
+    FILE *fd;
+    if((fd = fopen(pathname, "w")) < 0){
+        fprintf(stderr,"Open error\n");
+        return 0;
+    }
+    fprintf(fd, "%d ", p->size);
+    fprintf(fd, "%d ", p->cursor);
+    for(int i = 0; i < p->cursor; i++){
+        fprintf(fd, "%d ",p->coups[i]);
+    }
+    fclose(fd);
+    return 1;
+}
+
 
 void afficherPartie(Partie *p){
     setbuf(stdout, NULL);
@@ -123,6 +159,8 @@ int jouerCoup(Partie *p, int coup){
         return 0;
     } else {
         p->board[ligne][colonne] = p->tour * (-1);
+        p->coups[p->cursor] = coup;
+        p->cursor+=1;
         return 1;
     }
 }
@@ -206,6 +244,7 @@ int checkVictory(Partie *p, int coup){
 }
 
 
+
 int main(){
     int size = 3;
     int choix = 0;
@@ -216,7 +255,8 @@ int main(){
         fprintf(stdout,"Veuillez sélectionner votre choix: \n"
                        "1. Changer taille (actuellement %d)\n"
                        "2. Démarrer partie\n"
-                       "3. stop\n",size);
+                       "3. Sauvegarder dernière partie\n"
+                       "4. stop\n",size);
 
         scanf("%d",&choix);
         switch (choix) {
@@ -241,6 +281,7 @@ int main(){
                 }
                 break;
             case 2:
+                deletePartie(p);
                 p = creerPartie(size);
                 int coup;
                 while (!p->stop){
@@ -253,7 +294,10 @@ int main(){
                     printf("v? :%d",checkVictory(p, coup));
                     if(checkVictory(p, coup)){
                         p->stop = 1;
-                    } else{
+                    } else if(){
+                        p->stop = 1;
+                        p->tour -1;
+                    }else{
                         if(p->tour == 1){
                             p->tour = 2;
                         }else{
@@ -263,6 +307,8 @@ int main(){
                 }
                 break;
             case 3:
+                break;
+            case 4:
                 setbuf(stdout, NULL);
                 printf("Arret du programme");
                 stop = 0;
@@ -274,6 +320,7 @@ int main(){
 
         }
     }
+    deletePartie(p);
 
     return 0;
 }
