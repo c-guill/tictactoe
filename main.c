@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <pthread.h>
+#include <sched.h>
 
 #define MAX 5
 typedef struct Partie Partie;
@@ -365,8 +366,14 @@ int startPartie(Partie *p, int player, int simulation){
     p1 = createPlayer(1, simulation, player < 2, p);
     p2 = createPlayer(2, simulation, player == 0 , p);
     srand(time(NULL));
-    pthread_create(&t1, NULL, play, p1);
-    pthread_create(&t2, NULL, play, p2);
+    if(pthread_create(&t1, NULL, play, p1) != 0){
+        fprintf(stderr,"Erreur thread create\n");
+        return -1;
+    }
+    if(pthread_create(&t2, NULL, play, p2) != 0){
+        fprintf(stderr,"Erreur thread create\n");
+        return -1;
+    }
 
     // On attend que les threads se terminent
     pthread_join(t1, NULL);
