@@ -3,7 +3,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <pthread.h>
+#include <sys/time.h>
 
+//TODO commenter le code
 #define MAX 5
 typedef struct Partie Partie;
 typedef struct Player Player;
@@ -331,12 +333,12 @@ void *play(void *playerarg){
             jouerCoup(p,p->coups[p->cursor], 0);
             p->cursor+=1;
         }else {
-            if (player->IA) {
-                jouerCoup(p, getCoupRandom(p), 1);
-            } else {
+            if (player->IA == 0) {
                 coup = coupJoueur(p);
                 while (!jouerCoup(p, coup, 1))
                     coup = coupJoueur(p);
+            }else{ //TODO faire IA niveau 2 min, max
+                jouerCoup(p, getCoupRandom(p), 1);
             }
         }
         if(checkVictory(p, coup))
@@ -359,21 +361,31 @@ void *play(void *playerarg){
  * @param simulation
  * @return le numéro du gagant de la partie, -1 si null
  */
-int startPartie(Partie *p, int player, int simulation){
+int startPartie(Partie *p, int typeP1, int typeP2, int simulation, int schedulerP1, int schedulerP2, int seed){
+    struct sched_param param;
+    param.sched_priority = 10;
     pthread_t t1, t2;
     Player *p1, *p2;
-    p1 = createPlayer(1, simulation, player < 2, p);
-    p2 = createPlayer(2, simulation, player == 0 , p);
-    srand(time(NULL));
+    p1 = createPlayer(1, simulation, typeP1, p);
+    p2 = createPlayer(2, simulation, typeP2, p);
+    if(seed == -1)
+        srand(time(NULL));
+    else
+        srand(seed);
     if(pthread_create(&t1, NULL, play, p1) != 0){
-        fprintf(stderr,"Erreur thread\n");
+        fprintf(stderr,"Erreur thread create\n");
         return -1;
+    }
+    if (pthread_setschedparam(t1, schedulerP1, &param) != 0) {
+        fprintf(stderr,"Erreur thread setSched\n");
     }
     if(pthread_create(&t2, NULL, play, p2) != 0){
-        fprintf(stderr,"Erreur thread\n");
+        fprintf(stderr,"Erreur thread create\n");
         return -1;
     }
-
+    if (pthread_setschedparam(t2, schedulerP2, &param) != 0) {
+        fprintf(stderr,"Erreur thread setSched\n");
+    }
     // On attend que les threads se terminent
     pthread_join(t1, NULL);
     pthread_join(t2, NULL);
@@ -381,30 +393,92 @@ int startPartie(Partie *p, int player, int simulation){
     return p->tour;
 }
 
+void menu_joueur(int *scheduler, int *type){
+    int choix = 0;
+    int tmp;
+    fprintf(stdout,"Veuillez sélectionner l'option à modifier: \n"
+                   "1. Changer le scheduler\n"
+                   "2. Changer type de joueur\n"
+                   "3. Quitter le menu\n");
+    scanf("%d",&choix);
+    switch (choix) {
+        case 1://SCHEDULER
+            setbuf(stdout, NULL);
+            printf("Indiquer le scheduler:\n"
+                   "0. SCHED_OTHER (defaut)\n"
+                   "1. SCHED_FIFO\n"
+                   "2. SCHED_RR\n");
+            memcpy(scheduler,&tmp, sizeof(int ));
+            scanf("%d",scheduler);
+            if(tmp == *scheduler){
+                fprintf(stderr,"Choix Invalide\n");
+                *scheduler = 0;
+                while (getchar() != '\n');
+            } else if (*scheduler < 0 || *scheduler > 2){
+                fprintf(stderr,"Choix Invalide, la taille doit être supérieur à 2\n");
+                *scheduler = 0;
+            } else{
+                printf("Le scheduler à été modifié\n");
+            }
+            break;
+        case 2: // TYPE Joueur
+            setbuf(stdout, NULL);
+            printf("Indiquer le type du joueur:\n"
+                   "0. Joueur humain\n"
+                   "1. IA Simple\n"
+                   "2. IA Difficile\n");
+            memcpy(type,&tmp, sizeof(int ));
+            scanf("%d",type);
+            if(tmp == *type){
+                fprintf(stderr,"Choix Invalide\n");
+                *type = 0;
+                while (getchar() != '\n');
+            } else if (*type < 0 || *type > 2){
+                fprintf(stderr,"Choix Invalide, la taille doit être supérieur à 2\n");
+                *type = 0;
+            } else{
+                printf("Le joueur à été modifié\n");
+            }
+            break;
+        case 3:
+            fprintf(stdout,"Retour au menu principal...\n");
+            break;
+        default:
+            setbuf(stdout, NULL);
+            fprintf(stderr,"Choix Invalide\n");
+            while (getchar() != '\n');
+    }
+}
 
 
 int main(){
+    struct timeval debut, fin;
+    double temps = 0;
     int size = 3;
     int nbPartie = 0;
-    int choix = 0;
+    int c1 = 0;
     int stop = 1;
-    int player = 2;
-    int tmp = -1;
+    int tmp = -2;
+    int player;
     char s[50];
-    Partie *p = NULL;
+    int schedulerP1 = SCHED_OTHER ,schedulerP2 = SCHED_OTHER;
+    int typeP1 = 1, typeP2 = 1; // 0: humain, 1: IA simple, 2: IA difficile
+    int seed = -1;
+    Partie *p = creerPartie(size);
     while (stop){
         setbuf(stdout, NULL);
         fprintf(stdout,"Veuillez sélectionner votre choix: \n"
                        "1. Changer taille (actuellement %d)\n"
-                       "2. Changer le nombre de joueur (actuellemement %d)\n"
-                       "3. Démarrer partie\n"
-                       "4. Sauvegarder dernière partie\n"
-                       "5. Simuler partie\n"
-                       "6. Lancer plusieurs parties\n"
-                       "7. stop\n",size, player);
+                       "2. Changer seed\n"
+                       "3. Changer paramètres joueur\n"
+                       "4. Démarrer partie\n"
+                       "5. Sauvegarder dernière partie\n"
+                       "6. Simuler partie\n"
+                       "7. Lancer plusieurs parties\n"
+                       "8. stop\n",size);
 
-        scanf("%d",&choix);
-        switch (choix) {
+        scanf("%d",&c1);
+        switch (c1) {
             case 1: // TAILLE
                 setbuf(stdout, NULL);
                 printf("Indiquer la taille.\n");
@@ -421,41 +495,56 @@ int main(){
                     printf("La taille à été modifié\n");
                 }
                 break;
-            case 2: // COMBIEN DE JOUEUR
+            case 2: //seed
                 setbuf(stdout, NULL);
-                printf("Indiquez un nombre de joueur\n");
+                printf("Indiquer la seed (-1 pour mettre par défaut).\n");
+                memcpy(&seed,&tmp, sizeof(int ));
+                scanf("%d",&seed);
+                if(tmp == seed){
+                    fprintf(stderr,"Choix Invalide\n");
+                    seed = -1;
+                    while (getchar() != '\n');
+                }else{
+                    printf("La seed à été modifié\n");
+                }
+                break;
+            case 3: // PARAMETRE JOUEUR
+                setbuf(stdout, NULL);
+                printf("Indiquez le joueur à modifier.\n");
                 memcpy(&player,&tmp, sizeof(int ));
                 scanf("%d",&player);
                 if(tmp == player){
                     fprintf(stderr,"Choix Invalide\n");
-                    player = 2;
                     while (getchar() != '\n');
-                } else if (player < 0 || player > 2){
-                    fprintf(stderr,"Choix Invalide, le nombre de joueur doit être entre 0 et 2.\n");
-                    player = 2;
+                } else if (player < 1 || player > 2){
+                    fprintf(stderr,"Choix Invalide, le numéro du joueur doit être entre 1 et 2.\n");
                 } else{
-                    printf("Le nombre de joueur à été modifié.\n");
+                    printf("Le  joueur %d à été sélectionné.\n",player);
+                    if(player == 1)
+                        menu_joueur(&schedulerP1, &typeP1);
+                    else
+                        menu_joueur(&schedulerP2, &typeP2);
                 }
                 break;
-            case 3: // START
+            case 4: // START
                 deletePartie(p);
                 p = creerPartie(size);
-                startPartie(p, player,0);
+                startPartie(p, typeP1, typeP2,0, schedulerP1, schedulerP2, seed);
                 break;
-            case 4: //SAVE PARTIE
+            case 5: //SAVE PARTIE
                 printf("Indiquez le nom du fichier où sauvegarder la partie (Maximum 50 caractères).\n");
                 scanf("%s",s);
                 printf("Sauvegarde de la partie dans le fichier %s...\n",s);
                 savePartie(s,p);
                 break;
-            case 5: //SIMULER PARTIE
+            case 6: //SIMULER PARTIE
                 printf("Indiquez le nom du fichier de la partie à simuler (Maximum 50 caractères).\n");
                 scanf("%s",s);
                 printf("Chargement de la partie: %s...\n",s);
                 p = loadPartie(s);
-                startPartie(p, 0,1);
+                startPartie(p, 0, 0,1, schedulerP1, schedulerP2, seed);
                 break;
-            case 6: //Lancer plusieurs parties et analyse
+            case 7: //Lancer plusieurs parties et analyse
                 printf("Indiquez le nombre de partie à lancer.\n");
                 memcpy(&nbPartie,&tmp, sizeof(int ));
                 scanf("%d",&nbPartie);
@@ -466,15 +555,34 @@ int main(){
                     fprintf(stderr,"Choix Invalide, le nombre de joueur doit supérieur à 0.\n");
                 } else{
                     printf("Lancement de %d parties...\n", nbPartie);
-                    int g;
+                    int g, p1 = 0, p2 = 0, n = 0;
+                    temps = 0;
                     for (int i = 0; i < nbPartie; ++i) {
                         deletePartie(p);
                         p = creerPartie(size);
-                        g = startPartie(p, player,0);
+                        gettimeofday(&debut, NULL);
+                        if((g = startPartie(p, typeP1, typeP2,0, schedulerP1, schedulerP2, seed))==1){
+                            p1++;
+                        }else if(g == 2){
+                            p2++;
+                        }else{
+                            n++;
+                        }
+                        gettimeofday(&fin, NULL);
+                        temps += (fin.tv_sec - debut.tv_sec) * 1000.0 + (fin.tv_usec - debut.tv_usec) / 1000.0; // Calculez le temps écoulé en millisecondes
                     }
+                    printf("Paramètre de la partie: \n"
+                           "seed: %d\n"
+                           "type Joueur 1: %d\n"
+                           "type Joueur 2: %d\n"
+                           "scheduler Joueur 1: %d\n"
+                           "scheduler Joueur 1: %d\n",seed,typeP1,typeP2,schedulerP1,schedulerP2);
+                    printf("Temps d'exécution des parties : %f millisecondes\n", temps);
+                    printf("Moyenne du temps d'exécution : %f millisecondes\n", temps/nbPartie);
+                    printf("Le joueur 1 à gagné %d partie, le joueur 2 %d partie et il y a eu %d partie nulle\n", p1, p2, n);
                 }
                 break;
-            case 7: // STOP
+            case 8: // STOP
                 setbuf(stdout, NULL);
                 printf("Arret du programme");
                 stop = 0;
