@@ -16,6 +16,7 @@ struct Partie {
     int max;
     int *coups;
     int cursor;
+    int *coupPossible; //liste des coups possibles
 };
 
 struct Player {
@@ -50,6 +51,14 @@ Partie *creerPartie(int size){
         fprintf(stderr,"Malloc error\n");
         return NULL;
     }
+    if((p->coupPossible = malloc(sizeof(int *) * (size*size+1))) == NULL){
+        free(p->coups);
+        free(p);
+        free(p->board);
+        setbuf(stdout, NULL);
+        fprintf(stderr,"Malloc error\n");
+        return NULL;
+    }
     for (int i = 0; i < size; ++i) {
         if((p->board[i] = malloc(sizeof(int) * size)) == NULL) {
             for(int j = 0 ; j < i; j++) {
@@ -70,6 +79,8 @@ Partie *creerPartie(int size){
             p->board[i][j] = (j + 1) + ((i) * size);
         }
     }
+    for(int i = 1 ; i <= size*size; i++)
+        p->coupPossible[i-1]=i;
     p->size = size;
     p->stop = 0;
     p->tour = 1;
@@ -105,16 +116,18 @@ void savePartie(char *pathname, Partie *p){
 Partie *loadPartie(char *pathname){
     FILE *fd;
     int size;
+    int cursor;
     if((fd = fopen(pathname, "r")) < 0){
         fprintf(stderr,"Open error\n");
         return NULL;
     }
     fscanf(fd,"%d", &size);
     Partie *p = creerPartie(size);
-    fscanf(fd,"%d", &p->cursor);
-    for(int i = 0; i < p->cursor; i++){
-        fprintf(fd, "%d ",p->coups[i]);
+    fscanf(fd,"%d", &cursor);
+    for(int i = 0; i < cursor; i++){
+        fscanf(fd, "%d",&p->coups[i]);
     }
+    printf("\n");
     fclose(fd);
     return p;
 }
@@ -201,7 +214,7 @@ int jouerCoup(Partie *p, int coup, int historique){
     } else {
         p->board[ligne][colonne] = p->tour * (-1);
         if(historique){
-            p->coups[p->cursor] = coup;
+            p->coups[p->cursor] = coup+1;
             p->cursor+=1;
         }
         return 1;
@@ -295,13 +308,9 @@ int checkVictory(Partie *p, int coup){
 int getCoupRandom(Partie *p){
     int size = (p->size * p->size) - p->cursor;
     int counter = rand() % size;
-    int coup = 0;
-    int ligne = coup / p->size , colonne = coup % p->size;
-    while (p->board[ligne][colonne] < 0 || counter > 0){
-        if(p->board[ligne][colonne] > 0)
-            counter--;
-        coup++;
-        ligne = coup / p->size , colonne = coup % p->size;
+    int coup = p->coupPossible[counter];
+    for(int i = counter; i < (p->size * p->size) - p->cursor ;i++){
+        memcpy(&p->coupPossible[i],&p->coupPossible[i+1],sizeof(int *));
     }
     return coup;
 }
@@ -312,7 +321,6 @@ void *play(void *playerarg){
     int coup;
     while (!p->stop){
         if(p->tour != player->num || p->stop){
-            sleep(1);
             continue;
         }
         // On bloque l'accès au plateau pour ce joueur
@@ -344,7 +352,14 @@ void *play(void *playerarg){
 
 }
 
-void startPartie(Partie *p, int player, int simulation){
+/**
+ *
+ * @param p
+ * @param player
+ * @param simulation
+ * @return le numéro du gagant de la partie, -1 si null
+ */
+int startPartie(Partie *p, int player, int simulation){
     pthread_t t1, t2;
     Player *p1, *p2;
     p1 = createPlayer(1, simulation, player < 2, p);
@@ -357,25 +372,18 @@ void startPartie(Partie *p, int player, int simulation){
     pthread_join(t1, NULL);
     pthread_join(t2, NULL);
     afficherPartie(p);
+    return p->tour;
 }
 
 
 
 int main(){
-//    int k = 0;
-//    for (int i = 1; i <= 8; ++i) {
-//        for (int j = 1; j <= 8; ++j) {
-//            int ligne = k /8 , colonne = k % 8;
-//            printf("%d;%d;%d ",k,ligne,colonne);
-//            k++;
-//        }
-//        printf("\n");
-//    }
     int size = 3;
+    int nbPartie = 0;
     int choix = 0;
     int stop = 1;
     int player = 2;
-    int tmp;
+    int tmp = -1;
     char s[50];
     Partie *p = NULL;
     while (stop){
@@ -386,7 +394,8 @@ int main(){
                        "3. Démarrer partie\n"
                        "4. Sauvegarder dernière partie\n"
                        "5. Simuler partie\n"
-                       "6. stop\n",size, player);
+                       "6. Lancer plusieurs parties\n"
+                       "7. stop\n",size, player);
 
         scanf("%d",&choix);
         switch (choix) {
@@ -396,35 +405,29 @@ int main(){
                 memcpy(&size,&tmp, sizeof(int ));
                 scanf("%d",&size);
                 if(tmp == size){
-                    setbuf(stdout, NULL);
                     fprintf(stderr,"Choix Invalide\n");
                     size = 3;
                     while (getchar() != '\n');
                 } else if (size < 3){
-                    setbuf(stdout, NULL);
                     fprintf(stderr,"Choix Invalide, la taille doit être supérieur à 2\n");
                     size = 3;
                 } else{
-                    setbuf(stdout, NULL);
                     printf("La taille à été modifié\n");
                 }
                 break;
             case 2: // COMBIEN DE JOUEUR
                 setbuf(stdout, NULL);
-                printf("Indiquer un nombre de joueur\n");
+                printf("Indiquez un nombre de joueur\n");
                 memcpy(&player,&tmp, sizeof(int ));
                 scanf("%d",&player);
                 if(tmp == player){
-                    setbuf(stdout, NULL);
                     fprintf(stderr,"Choix Invalide\n");
                     player = 2;
                     while (getchar() != '\n');
                 } else if (player < 0 || player > 2){
-                    setbuf(stdout, NULL);
                     fprintf(stderr,"Choix Invalide, le nombre de joueur doit être entre 0 et 2.\n");
                     player = 2;
                 } else{
-                    setbuf(stdout, NULL);
                     printf("Le nombre de joueur à été modifié.\n");
                 }
                 break;
@@ -434,22 +437,42 @@ int main(){
                 startPartie(p, player,0);
                 break;
             case 4: //SAVE PARTIE
-                printf("Indiquer le nom du fichier où sauvegarder la partie (Maximum 50 caractères).\n");
+                printf("Indiquez le nom du fichier où sauvegarder la partie (Maximum 50 caractères).\n");
                 scanf("%s",s);
                 printf("Sauvegarde de la partie dans le fichier %s...\n",s);
                 savePartie(s,p);
                 break;
             case 5: //SIMULER PARTIE
-                printf("Indiquer le nom du fichier de la partie à simuler (Maximum 50 caractères).\n");
+                printf("Indiquez le nom du fichier de la partie à simuler (Maximum 50 caractères).\n");
                 scanf("%s",s);
                 printf("Chargement de la partie: %s...\n",s);
                 p = loadPartie(s);
                 startPartie(p, 0,1);
                 break;
-            case 6: // STOP
+            case 6: //Lancer plusieurs parties et analyse
+                printf("Indiquez le nombre de partie à lancer.\n");
+                memcpy(&nbPartie,&tmp, sizeof(int ));
+                scanf("%d",&nbPartie);
+                if(tmp == nbPartie){
+                    fprintf(stderr,"Choix Invalide\n");
+                    while (getchar() != '\n');
+                } else if (nbPartie < 0){
+                    fprintf(stderr,"Choix Invalide, le nombre de joueur doit supérieur à 0.\n");
+                } else{
+                    printf("Lancement de %d parties...\n", nbPartie);
+                    int g;
+                    for (int i = 0; i < nbPartie; ++i) {
+                        deletePartie(p);
+                        p = creerPartie(size);
+                        g = startPartie(p, player,0);
+                    }
+                }
+                break;
+            case 7: // STOP
                 setbuf(stdout, NULL);
                 printf("Arret du programme");
                 stop = 0;
+                +
                 break;
             default:
                 setbuf(stdout, NULL);
