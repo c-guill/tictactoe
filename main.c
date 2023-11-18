@@ -5,7 +5,6 @@
 #include <sys/time.h>
 
 //TODO commenter le code
-//TODO vérifier stats programme
 #define MAX 5
 typedef struct Board Board;
 typedef struct Player Player;
@@ -47,7 +46,7 @@ int checkDiagonal(Board *p, int coup);
 int checkVictory(Board *p, int coup);
 int getRandomMove(Board *p);
 void *play(void *playerarg);
-int startGame(Board *p, int typeP1, int typeP2, int simulation, int schedulerP1, int schedulerP2, int seed);
+int startGame(Board *p, int typeP1, int typeP2, int simulation, int schedulerP1, int schedulerP2, int seed, int nb);
 void player_gui(int *scheduler, int *type);
 
 /*
@@ -64,7 +63,7 @@ int main(){
     int player;
     char s[50];
     int schedulerP1 = SCHED_OTHER ,schedulerP2 = SCHED_OTHER;
-    int typeP1 = 0, typeP2 = 2; // 0: humain, 1: IA simple, 2: IA difficile
+    int typeP1 = 1, typeP2 = 2; // 0: humain, 1: IA simple, 2: IA difficile
     int seed = -1;
     Board *p = createBoard(size);
     while (stop){
@@ -130,7 +129,7 @@ int main(){
             case 4: // START
                 deleteBoard(p);
                 p = createBoard(size);
-                startGame(p, typeP1, typeP2, 0, schedulerP1, schedulerP2, seed);
+                startGame(p, typeP1, typeP2, 0, schedulerP1, schedulerP2, seed, 0);
                 break;
             case 5: //SAVE PARTIE
                 printf("Indiquez le nom du fichier où sauvegarder la board (Maximum 50 caractères).\n");
@@ -143,7 +142,7 @@ int main(){
                 scanf("%s",s);
                 printf("... Chargement de la board: %s...\n",s);
                 p = loadBoard(s);
-                startGame(p, 0, 0, 1, schedulerP1, schedulerP2, seed);
+                startGame(p, 0, 0, 1, schedulerP1, schedulerP2, seed, 0);
                 break;
             case 7: //Lancer plusieurs parties et analyse
                 printf("Indiquez le nombre de board à lancer.\n");
@@ -162,7 +161,7 @@ int main(){
                         deleteBoard(p);
                         p = createBoard(size);
                         gettimeofday(&debut, NULL);
-                        if((g = startGame(p, typeP1, typeP2, 0, schedulerP1, schedulerP2, seed)) == 1){
+                        if((g = startGame(p, typeP1, typeP2, 0, schedulerP1, schedulerP2, seed, i)) == 1){
                             p1++;
                         }else if(g == 2){
                             p2++;
@@ -561,52 +560,49 @@ int getRandomMove(Board *p){
 }
 
 /**
- *
+ * 1 si victoire, 0 si égalité -1 si défaite
  * @param p
  * @return Si gagné retourne 1, si perdu retourne -1 si égalité retourne 0
  */
 int MiniMax(Board *p, int idJoueur, int deep){
     Board *partie = NULL;
-    int max = -1;
-    int min = 400000;
-    int result;
-    int bestMove;
-    int bestScore;
-    int tmpScore;
+    int result = -1;
+    int r;
+    int m = 0;
+    int j = p->tour == idJoueur;
     for(int i = 0 ; i < p->size * p->size - p->cursor; i++){
         partie = copyBoard(p);
         int coup = partie->coupPossible[i];
         selectMoveID(partie, i);
         playMove(partie, coup, 1);
-        if(checkVictory(partie,coup)){
-            if(partie->tour == idJoueur){ //L'ordinateur à gagné, on retourne le premier coup gagnant
-                return deep == 0 ? coup : 1;
-            } else{ // Il y a égalité ou défaite, on sauvegarde le meilleur coup
-                if(min < (tmpScore = partie->tour == -1 ? 0 : -1)){
-                    min = tmpScore;
-                    bestMove = coup;
-                }
-            }
-        } else{
+        if(checkVictory(partie,coup))
+            //Si l'ordinateur gagne r = 1 ; si égalité r = 0 ; si l'odinateur perd r = -1
+            r = partie->tour == idJoueur ? 1 : partie->tour == -1 ? 0 : -1;
+        else{
             if(partie->tour == 1)
                 partie->tour = 2;
             else
                 partie->tour = 1;
-            if(partie->tour == idJoueur){
-                if((result = MiniMax(partie, idJoueur, deep+1)) > max)
-                    if ((max = result) == 1)
-                        return deep == 0 ? coup : max;
-            }else{
-                if((result = MiniMax(partie, idJoueur,deep+1)) < min)
-                    if((min = result)==-1)
-                        return deep == 0 ? coup : min;
-
-            }
-
+            r = MiniMax(partie, idJoueur, deep+1);
         }
+        if(j){ //MAX
+            if (r >= m || i == 0){
+                m = r;
+                result = coup;
+            }
+        } else { // MIN
+            if (r <= m || i == 0){
+                m = r;
+                result = coup;
+            }
+        }
+//        if(deep == 0){
+//            printf("Joueur: %d, coup: %d, r: %d\n",partie->tour == idJoueur, coup, r);
+//        }
         deleteBoard(partie);
     }
-    return 0;
+
+    return deep == 0 ? result : m;
 }
 
 void *play(void *playerarg){
@@ -629,11 +625,14 @@ void *play(void *playerarg){
                 coup = playerMove(p);
                 while (!playMove(p, coup, 1))
                     coup = playerMove(p);
-            }else if(player->IA == 1){ //TODO faire IA niveau 2 minmax
+            }else if(player->IA == 1){ 
                 coup = getRandomMove(p);
                 playMove(p, coup, 1);
             }else{
-                coup = MiniMax(p,player->num,0);
+                if(p->cursor == 0)
+                    coup = 5;
+                else
+                    coup = MiniMax(p,player->num,0);
                 playMove(p, coup, 1);
             }
             selectMove(p, coup);
@@ -659,7 +658,7 @@ void *play(void *playerarg){
  * @param simulation
  * @return le numéro du gagant de la board, -1 si null
  */
-int startGame(Board *p, int typeP1, int typeP2, int simulation, int schedulerP1, int schedulerP2, int seed){
+int startGame(Board *p, int typeP1, int typeP2, int simulation, int schedulerP1, int schedulerP2, int seed, int nb){
     struct sched_param param;
     param.sched_priority = 10;
     int err;
@@ -670,7 +669,7 @@ int startGame(Board *p, int typeP1, int typeP2, int simulation, int schedulerP1,
     if(p1 == NULL || p2 == NULL || p == NULL)
         return -1;
     if(seed == -1)
-        srand(time(NULL));
+        srand(time(NULL) + nb);
     else
         srand(seed);
     if(pthread_create(&t1, NULL, play, p1) != 0){
