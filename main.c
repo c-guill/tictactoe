@@ -4,26 +4,25 @@
 #include <pthread.h>
 #include <sys/time.h>
 
-//TODO commenter le code
-#define MAX 5
+#define MAX 5 //Nombre qu'il faut aligner au maximum pour gagner
 typedef struct Board Board;
 typedef struct Player Player;
 
 struct Board {
     int size; // size*size = taille board
     int **board; // Matrice pour le board
-    int stop; // Boolean si la board est terminé
-    int tour; // Le tour de la personne qui doit jouer, -1 si la board est terminé
-    int max; // Nombre maximum de coups consécutifs à remporter sur chaque ligne, ligne ou diagonale
+    int stop; // Boolean si la partie est terminé
+    int tour; // Le tour de la personne qui doit jouer, -1 si la partie est terminé
+    int max; // Nombre maximum de coups consécutifs à remporter sur chaque ligne, colonne ou diagonale
     int *coups; // La liste des coups
-    int cursor; // Le nombre de coups joué
+    int cursor; // Le nombre de coup joué
     int *coupPossible; //liste des coups possibles
 };
 
 struct Player {
     int num; // nombre de joueur 1 ou 2
-    int IA; // le tour de la machine ou le joueur réel
-    int simulation; // une simulation de l'histoire du jeu ou un jeu en cours
+    int IA; // 0: humain, 1: IA simple, 2: IA difficile
+    int simulation; // une simulation de l'historique du jeu ou un jeu en cours
     Board *board;
 };
 
@@ -32,21 +31,136 @@ struct Player {
 //Mutex pour l'accès au plateau
 pthread_mutex_t board_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+/**
+ * Créer un plateau de jeu
+ * @param size taille de la ligne
+ * @return le plateau du jeu
+ */
 Board* createBoard(int size);
+/**
+ * Copier une partie (utilisé pour le minimax)
+ * @param p la partie à copier
+ * @return la copy de la partie passé en paramètre
+ */
+Board *copyBoard(Board *p);
+/**
+ * Supprimer en mémoire le plateau
+ * @param p plateau du jeu à supprimer
+ */
 void deleteBoard(Board *p);
+/**
+ * Sauvegarder le plateau dans un fichier
+ * @param pathname le fichier où sauvegarder le fichier
+ * @param p le plateau qu'il faut sauvegarder
+ */
 void saveBoard(char *pathname, Board *p);
+/**
+ * Charger le plateau stocké dans un fichier
+ * @param pathname fichier ou charger le plateau
+ * @return le plateau
+ */
 Board *loadBoard(char *pathname);
+/**
+ * imprimer dans la console la plateau et indiquer le vainqueur si la partie est terminé
+ * @param p le plateau à afficher
+ */
 void printBoard(Board *p);
+/**
+ * Créer un joueur
+ * @return retourne le joueur crée
+ */
+Player *createPlayer(int num, int simulation, int IA, Board *partie);
+/**
+ * Demander au joueur humain de jouer un coup
+ * @param p le plateau du jeu
+ * @return le coup choisis par le joueur
+ */
 int playerMove(Board *p);
-// retourne boolean
+/**
+ * Jouer un coup
+ * @param p le plateau où il faut jouer le coup
+ * @param coup le coup à joué
+ * @param historique boolean, si true alors on sauvegarde dans l'historique, sinon on ne sauvegarde pas le coup dans l'historique
+ * @return un boolean, true si le coup à été joué, false sinon
+ */
 int playMove(Board *p, int coup, int historique);
+/**
+ * vérifier si la partie est terminé -> vérifie la colonne
+ * @param p le plateau
+ * @param coup le coup qui à été joué par le joueur
+ * @return un boolean, true si la partie est terminé, false sinon
+ */
 int checkColonne(Board *p, int coup);
+/**
+ * vérifier si la partie est terminé -> vérifie la ligne
+ * @param p le plateau
+ * @param coup le coup qui à été joué par le joueur
+ * @return un boolean, true si la partie est terminé, false sinon
+ */
 int checkLine(Board *p, int coup);
+/**
+ * vérifier si la partie est terminé -> vérifie la diagonale
+ * @param p le plateau
+ * @param coup le coup qui à été joué par le joueur
+ * @return un boolean, true si la partie est terminé, false sinon
+ */
 int checkDiagonal(Board *p, int coup);
+/**
+ * vérifier si la partie est terminé
+ * @param p le plateau
+ * @param coup le coup qui à été joué par le joueur
+ * @return un boolean, true si la partie est terminé, false sinon
+ */
 int checkVictory(Board *p, int coup);
+/**
+ * supprime le coup sélectionné dans p->coupPossible
+ * @param p la partie ou le coup doit etre supprimé
+ * @param start l'emplacement du coup à supprimé
+ */
+void selectMoveID(Board *p, int start);
+/**
+ * Récupère l'emplacement du coup puis appel la fonction selectmoveID
+ * @param p la partie ou le coup doit être sélectionné
+ * @param coup le coup qu'il faut sélectionné
+ */
+void selectMove(Board *p, int coup);
+/**
+ * récuperer un coup aléatoire qui est jouable (utilisé pour l'ia de niveau facile)
+ * @param p le plateau du jeu
+ * @return le coup à jouer
+ */
 int getRandomMove(Board *p);
+/**
+ * Arbre Minimax pour IA difficile
+ * @param p le plateau du jeu
+ * @param idJoueur l'id de l'ia qui utilise MiniMax
+ * @param deep la profondeur de l'arbre actuel
+ * @return le coup à joué si deep = 0 sinon retour le score
+ */
+int MiniMax(Board *p, int idJoueur, int deep);
+/**
+ * cette fonction est appelé par chaque thread pour gérer chaque joueur et protéger avec un mutex le plateau
+ * @param playerarg la structure player
+ */
 void *play(void *playerarg);
+/**
+ * fonction utilisé pour démarrer une partie, elle va créer 2 threads et chaque thread va joué l'un contre l'autre dans la fonction play
+ * @param p la plateau ou la partie doit être jouer
+ * @param typeP1 le type du joueur 1
+ * @param typeP2 le type du joueur 2
+ * @param simulation boolean, true si la partie est une simulation, false sinon
+ * @param schedulerP1 type du scheduleur pour le joueur 1
+ * @param schedulerP2 type du scheduleur pour le joueur 2
+ * @param seed seed de la partie (-1 si seed aléatoire)
+ * @param nb utilisé si plusieurs partie est lancé en meme temps pour éviter de jouer plusieurs fois la meme partie
+ * @return le gagnant de la partie, -1 si égalité
+ */
 int startGame(Board *p, int typeP1, int typeP2, int simulation, int schedulerP1, int schedulerP2, int seed, int nb);
+/**
+ * Menu pour changer les paramètres sur un joueur
+ * @param scheduler utilisé pour changer le scheduler du thread
+ * @param type utilisé pour changer le type d'IA du joueur (humain, facile(IA), difficile(IA))
+ */
 void player_gui(int *scheduler, int *type);
 
 /*
@@ -63,7 +177,7 @@ int main(){
     int player;
     char s[50];
     int schedulerP1 = SCHED_OTHER ,schedulerP2 = SCHED_OTHER;
-    int typeP1 = 1, typeP2 = 2; // 0: humain, 1: IA simple, 2: IA difficile
+    int typeP1 = 1, typeP2 = 2;
     int seed = -1;
     Board *p = createBoard(size);
     while (stop){
@@ -377,7 +491,6 @@ int playerMove(Board *p) {
     return coup;
 }
 
-// retourne boolean
 int playMove(Board *p, int coup, int historique) {
     coup -= 1;
     int ligne = coup / p->size, colonne = coup % p->size;
@@ -514,13 +627,6 @@ int checkDiagonal(Board *p, int coup) {
     return 0;
 }
 
-/**
- * p->tour est mis à -1 si égalité
- * p->tour est mis à 1 si joueur 1 à gagné et 2 si joueur 2 à gagné
- * @param p
- * @param coup
- * @return
- */
 int checkVictory(Board *p, int coup) {
     if (p->size*p->size == p->cursor) {
         p->tour = -1;
@@ -559,11 +665,6 @@ int getRandomMove(Board *p){
     return coup;
 }
 
-/**
- * 1 si victoire, 0 si égalité -1 si défaite
- * @param p
- * @return Si gagné retourne 1, si perdu retourne -1 si égalité retourne 0
- */
 int MiniMax(Board *p, int idJoueur, int deep){
     Board *partie = NULL;
     int result = -1;
@@ -625,7 +726,7 @@ void *play(void *playerarg){
                 coup = playerMove(p);
                 while (!playMove(p, coup, 1))
                     coup = playerMove(p);
-            }else if(player->IA == 1){ 
+            }else if(player->IA == 1){
                 coup = getRandomMove(p);
                 playMove(p, coup, 1);
             }else{
@@ -651,13 +752,7 @@ void *play(void *playerarg){
     return NULL;
 }
 
-/**
- *
- * @param p
- * @param player
- * @param simulation
- * @return le numéro du gagant de la board, -1 si null
- */
+
 int startGame(Board *p, int typeP1, int typeP2, int simulation, int schedulerP1, int schedulerP2, int seed, int nb){
     struct sched_param param;
     param.sched_priority = 10;
