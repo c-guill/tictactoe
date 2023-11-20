@@ -26,9 +26,7 @@ struct Player {
     Board *board;
 };
 
-
-
-//Mutex pour l'accès au plateau
+// Mutex pour l'accès au plateau
 pthread_mutex_t board_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /**
@@ -166,7 +164,7 @@ void player_gui(int *scheduler, int *type);
 /*
  * Fonction principale
  */
-int main(){
+int main() {
     struct timeval debut, fin;
     double temps = 0;
     int size = 3;
@@ -176,69 +174,75 @@ int main(){
     int tmp = -2;
     int player;
     char s[50];
-    int schedulerP1 = SCHED_OTHER ,schedulerP2 = SCHED_OTHER;
+    int schedulerP1 = SCHED_OTHER, schedulerP2 = SCHED_OTHER;
     int typeP1 = 1, typeP2 = 2;
     int seed = -1;
     Board *p = createBoard(size);
-    while (stop){
+    while (stop) {
         setbuf(stdout, NULL);
-        fprintf(stdout,"Veuillez sélectionner votre choix: \n"
+        fprintf(stdout,"\nVeuillez sélectionner votre choix: \n"
                        "    1. Changer taille (actuellement %d)\n"
                        "    2. Changer seed\n"
-                       "    3. Changer paramètres joueur\n"
+                       "    3. Changer paramètres joueur (défault, typeJ1: %d; typeJ2: %d)\n"
                        "    4. Démarrer board\n"
                        "    5. Sauvegarder dernière board\n"
                        "    6. Simuler board\n"
                        "    7. Lancer plusieurs parties\n"
-                       "    8. stop\n",size);
+                       "    8. Stop\n", size, typeP1, typeP2);
         printf("-- Veuillez sélectionner votre choix: ");
-        scanf("%d",&c1);
+        scanf("%d", &c1);
         switch (c1) {
             case 1: // TAILLE
-                printf("Indiquer la taille.\n");
-                memcpy(&size,&tmp, sizeof(int));
-                scanf("%d",&size);
-                if(tmp == size){
+                printf("----------------\n");
+                printf("Indiquer la taille: ");
+                memcpy(&size, &tmp, sizeof(int));
+                scanf("%d", &size);
+                if(tmp == size) {
                     fprintf(stderr,"    X [Choix Invalide!]\n");
                     size = 3;
                     while (getchar() != '\n');
-                } else if (size < 3){
-                    fprintf(stderr,"    X [Choix Invalide, la taille doit être supérieur à 2]\n");
+                } else if (size < 3) {
+                    fprintf(stderr,"    X [Choix Invalide, la taille doit être supérieur à 2!]\n");
                     size = 3;
-                } else{
+                } else {
                     printf("    ==> [La taille à été modifié!]\n");
                 }
+                printf("----------------\n");
                 break;
             case 2: //seed
+                printf("----------------\n");
                 setbuf(stdout, NULL);
-                printf("Indiquer la seed (-1 pour mettre par défaut).\n");
-                memcpy(&seed,&tmp, sizeof(int ));
-                scanf("%d",&seed);
-                if(tmp == seed){
-                    fprintf(stderr,"    X [Choix Invalide, la seed doit être un nombre]\n");
+                printf("Indiquer la seed (-1 pour mettre par défaut): ");
+                memcpy(&seed, &tmp, sizeof(int ));
+                scanf("%d", &seed);
+                if (tmp == seed) {
+                    fprintf(stderr,"    X [Choix Invalide, la seed doit être un nombre!]\n");
                     seed = -1;
                     while (getchar() != '\n');
-                }else{
+                } else {
                     printf("    ==> [La seed à été modifié!]\n");
                 }
+                printf("----------------\n");
                 break;
             case 3: // PARAMETRE JOUEUR
+                printf("----------------\n");
                 setbuf(stdout, NULL);
-                printf("Indiquez le joueur à modifier.\n");
-                memcpy(&player,&tmp, sizeof(int ));
-                scanf("%d",&player);
-                if(tmp == player){
+                printf("Indiquez le joueur à modifier: ");
+                memcpy(&player, &tmp, sizeof(int));
+                scanf("%d", &player);
+                if (tmp == player) {
                     fprintf(stderr,"    X [Choix Invalide!]\n");
                     while (getchar() != '\n');
-                } else if (player < 1 || player > 2){
+                } else if (player < 1 || player > 2) {
                     fprintf(stderr,"    X [Choix Invalide, le numéro du joueur doit être entre 1 et 2.]\n");
-                } else{
-                    printf("    ==> [Le  joueur %d à été sélectionné.!]\n",player);
-                    if(player == 1)
+                } else {
+                    printf("    ==> [Le joueur %d à été sélectionné!]\n", player);
+                    if (player == 1)
                         player_gui(&schedulerP1, &typeP1);
                     else
                         player_gui(&schedulerP2, &typeP2);
                 }
+                printf("----------------\n");
                 break;
             case 4: // START
                 deleteBoard(p);
@@ -246,27 +250,32 @@ int main(){
                 startGame(p, typeP1, typeP2, 0, schedulerP1, schedulerP2, seed, 0);
                 break;
             case 5: //SAVE PARTIE
-                printf("Indiquez le nom du fichier où sauvegarder la board (Maximum 50 caractères).\n");
-                scanf("%s",s);
-                printf("... Sauvegarde de la board dans le fichier %s...\n", s);
+                printf("----------------\n");
+                printf("Indiquez le nom du fichier où sauvegarder la board (Maximum 50 caractères): ");
+                scanf("%s", s);
+                printf("    [... Sauvegarde de la board dans le fichier %s...]\n", s);
                 saveBoard(s, p);
+                printf("----------------\n");
                 break;
             case 6: //Simuler PARTIE
-                printf("Indiquez le nom du fichier de la board à simuler (Maximum 50 caractères).\n");
+                printf("----------------\n");
+                printf("Indiquez le nom du fichier de la board à simuler (Maximum 50 caractères): ");
                 scanf("%s",s);
                 printf("... Chargement de la board: %s...\n",s);
                 p = loadBoard(s);
                 startGame(p, 0, 0, 1, schedulerP1, schedulerP2, seed, 0);
+                printf("----------------\n");
                 break;
-            case 7: //Lancer plusieurs parties et analyse
-                printf("Indiquez le nombre de board à lancer.\n");
-                memcpy(&nbPartie,&tmp, sizeof(int ));
-                scanf("%d",&nbPartie);
+            case 7: // Lancer plusieurs parties et analyse
+                printf("----------------\n");
+                printf("Indiquez le nombre de board à lancer: ");
+                memcpy(&nbPartie, &tmp, sizeof(int));
+                scanf("%d", &nbPartie);
                 if(tmp == nbPartie){
-                    fprintf(stderr,"Choix Invalide\n");
+                    fprintf(stderr,"    X [Choix Invalide!]\n");
                     while (getchar() != '\n');
                 } else if (nbPartie < 0){
-                    fprintf(stderr,"Choix Invalide, le nombre de joueur doit supérieur à 0.\n");
+                    fprintf(stderr,"    X [Choix Invalide, le nombre de joueur doit supérieur à 0.]\n");
                 } else{
                     printf("Lancement de %d parties...\n", nbPartie);
                     int g, p1 = 0, p2 = 0, n = 0;
@@ -275,25 +284,27 @@ int main(){
                         deleteBoard(p);
                         p = createBoard(size);
                         gettimeofday(&debut, NULL);
-                        if((g = startGame(p, typeP1, typeP2, 0, schedulerP1, schedulerP2, seed, i)) == 1){
+                        if ((g = startGame(p, typeP1, typeP2, 0, schedulerP1, schedulerP2, seed, i)) == 1) {
                             p1++;
-                        }else if(g == 2){
+                        } else if(g == 2) {
                             p2++;
-                        }else{
+                        } else {
                             n++;
                         }
                         gettimeofday(&fin, NULL);
                         temps += (fin.tv_sec - debut.tv_sec) * 1000.0 + (fin.tv_usec - debut.tv_usec) / 1000.0; // Calculez le temps écoulé en millisecondes
                     }
+                    printf("----------------------------------------------------------------\n");
                     printf("Paramètre de la board: \n"
-                           "seed: %d\n"
-                           "type Joueur 1: %d\n"
-                           "type Joueur 2: %d\n"
-                           "scheduler Joueur 1: %d\n"
-                           "scheduler Joueur 1: %d\n",seed,typeP1,typeP2,schedulerP1,schedulerP2);
-                    printf("Temps d'exécution des parties : %f millisecondes\n", temps);
-                    printf("Moyenne du temps d'exécution : %f millisecondes\n", temps/nbPartie);
-                    printf("Le joueur 1 à gagné %d board, le joueur 2 %d board et il y a eu %d board nulle\n", p1, p2, n);
+                           " + Seed: %d\n"
+                           " + Type Joueur 1: %d\n"
+                           " + Type Joueur 2: %d\n"
+                           " + Scheduler Joueur 1: %d\n"
+                           " + Scheduler Joueur 2: %d\n", seed, typeP1, typeP2, schedulerP1, schedulerP2);
+                    printf("-> Temps d'exécution des parties : %f millisecondes\n", temps);
+                    printf("-> Moyenne du temps d'exécution : %f millisecondes\n", temps/nbPartie);
+                    printf("-> Le joueur 1 à gagné %d board, le joueur 2 %d board et il y a eu %d board nulle\n", p1, p2, n);
+                    printf("----------------------------------------------------------------\n");
                 }
                 break;
             case 8: // STOP
@@ -303,7 +314,7 @@ int main(){
                 break;
             default:
                 setbuf(stdout, NULL);
-                fprintf(stderr,"X [Choix Invalide!]\n");
+                fprintf(stderr,"    X [Choix Invalide!]\n");
                 while (getchar() != '\n');
 
         }
@@ -424,7 +435,6 @@ Board *loadBoard(char *pathname){
     return p;
 }
 
-
 void printSeperator(int n) {
     printf("\n");
     for (int i = 0; i < n; i++) {
@@ -480,7 +490,7 @@ int playerMove(Board *p) {
     while (!coup){
         setbuf(stdout, NULL);
         printf("-- Veuillez sélectionner un coup à joué: ");
-        scanf("%d",&coup);
+        scanf("%d", &coup);
         if(coup<=0 || coup > p->size*p->size){
             setbuf(stdout, NULL);
             fprintf(stderr, "X [Coup Invalide, il est en dehors du plateau.]\n");
@@ -513,7 +523,6 @@ int checkColonne(Board *p, int coup) {
     int ligne = coup / p->size , colonne = coup % p->size;
     int counter = 1; // counter le nombre de coups consécutifs
     int k;
-    // printf("    + Colonne -> parcours ligne (i): ");
     int i = ligne - 1;
     while (i >= (k = (ligne - p->max + 1 < 0) ? 0 : ligne - p->max + 1)) {
         if (p->board[i][colonne] == p->tour * (-1)) {
@@ -532,7 +541,6 @@ int checkColonne(Board *p, int coup) {
             break;
         }
     }
-    // printf("nombre de coups consecutifs actuel = %d\n", counter);
     if (counter < p->max) { return 0; }
     else { return 1; }
 }
@@ -540,7 +548,6 @@ int checkLine(Board *p, int coup) {
     int ligne = coup / p->size, colonne = coup % p->size;
     int counter = 1;
     int k;
-    // printf("    + Ligne -> parcours colonne (j): ");
     int j = colonne - 1;
     while (j >= (k = (colonne - p->max + 1 < 0) ? 0 : colonne - p->max + 1)) {
         if (p->board[ligne][j] == p->tour * (-1)) {
@@ -559,7 +566,6 @@ int checkLine(Board *p, int coup) {
             break;
         }
     }
-    // printf("nombre de coups consecutifs actuel = %d\n", counter);
     if (counter < p->max) { return 0; }
     else { return 1; }
 }
@@ -568,7 +574,6 @@ int checkDiagonal(Board *p, int coup) {
 
 #pragma region Diagonale de gauche a droite
     int counter = 1;
-    // printf("    + Diagonale de gauche à droite: ");
     int i = ligne - 1, j = colonne - 1;
     int limitLigne = (ligne - p->max + 1) < 0 ? 0 : ligne - p->max + 1;
     int limitColonne = (colonne - p->max + 1) < 0 ? 0 : colonne - p->max + 1;
@@ -591,13 +596,11 @@ int checkDiagonal(Board *p, int coup) {
             break;
         }
     }
-    // printf("nombre de coups consecutifs actuel = %d\n", counter);
     if (counter >= p->max) { return 1; }
 #pragma endregion
 
 #pragma region Diagonale de droite a gauche
     counter = 1;
-    // printf("    + Diagonale de droite à gauche: ");
     i = ligne - 1, j = colonne + 1;
     limitLigne = (ligne - p->max + 1) < 0 ? 0 : ligne - p->max + 1;
     limitColonne = (colonne + p->max - 1) > p->size - 1 ? p->size - 1 : colonne + p->size - 1;
@@ -620,7 +623,6 @@ int checkDiagonal(Board *p, int coup) {
             break;
         }
     }
-    // printf("nombre de coups consecutifs actuel = %d\n", counter);
     if (counter >= p->max) { return 1; }
 #pragma endregion
 
@@ -639,12 +641,12 @@ int checkVictory(Board *p, int coup) {
     return 0;
 }
 
-void selectMoveID(Board *p, int start){
+void selectMoveID(Board *p, int start) {
     for(int i = start; i < (p->size * p->size) - p->cursor ;i++)
-        memcpy(&p->coupPossible[i],&p->coupPossible[i+1],sizeof(int *));
+        memcpy(&p->coupPossible[i], &p->coupPossible[i+1], sizeof(int *));
 }
 
-void selectMove(Board *p, int coup){
+void selectMove(Board *p, int coup) {
     int id = 0;
     while (p->coupPossible[id] != coup) {
         id++;
@@ -656,7 +658,6 @@ void selectMove(Board *p, int coup){
 
     selectMoveID(p, id);
 }
-
 
 int getRandomMove(Board *p){
     int size = (p->size * p->size) - p->cursor;
@@ -697,16 +698,13 @@ int MiniMax(Board *p, int idJoueur, int deep){
                 result = coup;
             }
         }
-//        if(deep == 0){
-//            printf("Joueur: %d, coup: %d, r: %d\n",partie->tour == idJoueur, coup, r);
-//        }
         deleteBoard(partie);
     }
 
     return deep == 0 ? result : m;
 }
 
-void *play(void *playerarg){
+void *play(void *playerarg) {
     Player *player = (Player  *) playerarg;
     Board *p = (Board  *) player->board;
     int coup;
@@ -718,19 +716,20 @@ void *play(void *playerarg){
         pthread_mutex_lock(&board_mutex);
 
         printBoard(p);
-        if(player->simulation){
-            playMove(p, p->coups[p->cursor], 0);
+        if (player->simulation) {
+            coup = p->coups[p->cursor];
+            playMove(p, coup, 0);
             p->cursor+=1;
-        }else {
+        } else {
             if (player->IA == 0) {
                 coup = playerMove(p);
                 while (!playMove(p, coup, 1))
                     coup = playerMove(p);
-            }else if(player->IA == 1){
+            } else if(player->IA == 1) {
                 coup = getRandomMove(p);
                 playMove(p, coup, 1);
-            }else{
-                if(p->cursor == 0)
+            } else {
+                if (p->cursor == 0)
                     coup = 5;
                 else
                     coup = MiniMax(p,player->num,0);
@@ -738,9 +737,9 @@ void *play(void *playerarg){
             }
             selectMove(p, coup);
         }
-        if(checkVictory(p, coup))
+        if (checkVictory(p, coup))
             p->stop = 1;
-        else{
+        else {
             if(p->tour == 1)
                 p->tour = 2;
             else
@@ -752,8 +751,11 @@ void *play(void *playerarg){
     return NULL;
 }
 
-
-int startGame(Board *p, int typeP1, int typeP2, int simulation, int schedulerP1, int schedulerP2, int seed, int nb){
+int startGame(Board *p, int typeP1, int typeP2, int simulation, int schedulerP1, int schedulerP2, int seed, int nb) {
+    if (p->size > 3 && (typeP1 == 2 || typeP2 == 2)) {
+        fprintf(stderr,"    X [Impossible de lancer une partie avec l'ia de niveau 2 sur un plateau supérieur à 9.]\n");
+        return 0;
+    }
     struct sched_param param;
     param.sched_priority = 10;
     int err;
@@ -768,21 +770,21 @@ int startGame(Board *p, int typeP1, int typeP2, int simulation, int schedulerP1,
     else
         srand(seed);
     if(pthread_create(&t1, NULL, play, p1) != 0){
-        fprintf(stderr,"Erreur thread 1 create\n");
+        fprintf(stderr,"    X [Erreur thread 1 create!]\n");
         return -1;
     }
     if(schedulerP1 != SCHED_OTHER) {
         if ((err = pthread_setschedparam(t1, schedulerP1, &param)) != 0) {
-            fprintf(stderr, "Erreur thread 1 setSched: %d\n", err);
+            fprintf(stderr, "    X [Erreur thread 1 setSched: %d]\n", err);
         }
     }
     if(pthread_create(&t2, NULL, play, p2) != 0){
-        fprintf(stderr,"Erreur thread 2 create\n");
+        fprintf(stderr,"    X [Erreur thread 2 create!]\n");
         return -1;
     }
     if(schedulerP1 != SCHED_OTHER) {
         if ((err = pthread_setschedparam(t2, schedulerP2, &param)) != 0) {
-            fprintf(stderr, "Erreur thread 2 setSched: %d\n", err);
+            fprintf(stderr, "    X [Erreur thread 2 setSched: %d]\n", err);
         }
     }
     // On attend que les threads se terminent
@@ -792,59 +794,59 @@ int startGame(Board *p, int typeP1, int typeP2, int simulation, int schedulerP1,
     return p->tour;
 }
 
-void player_gui(int *scheduler, int *type){
+void player_gui(int *scheduler, int *type) {
     int choix = 0;
     int tmp;
-    fprintf(stdout,"Veuillez sélectionner l'option à modifier: \n"
-                   "1. Changer le scheduler\n"
-                   "2. Changer type de joueur\n"
-                   "3. Quitter le menu\n");
+    fprintf(stdout,"- Veuillez sélectionner l'option à modifier: \n"
+                   "    1. Changer le scheduler\n"
+                   "    2. Changer type de joueur\n"
+                   "    3. Quitter le menu\n");
     scanf("%d",&choix);
     switch (choix) {
         case 1://SCHEDULER
             setbuf(stdout, NULL);
-            printf("Indiquer le scheduler:\n"
-                   "0. SCHED_OTHER (defaut)\n"
-                   "1. SCHED_FIFO\n"
-                   "2. SCHED_RR\n");
+            printf("- Indiquer le scheduler:\n"
+                   "    0. SCHED_OTHER (defaut)\n"
+                   "    1. SCHED_FIFO\n"
+                   "    2. SCHED_RR\n");
             memcpy(scheduler,&tmp, sizeof(int ));
             scanf("%d",scheduler);
-            if(tmp == *scheduler){
-                fprintf(stderr,"Choix Invalide\n");
+            if (tmp == *scheduler) {
+                fprintf(stderr,"    X [Choix Invalide!]\n");
                 *scheduler = 0;
                 while (getchar() != '\n');
-            } else if (*scheduler < 0 || *scheduler > 2){
-                fprintf(stderr,"Choix Invalide, la taille doit être supérieur à 2\n");
+            } else if (*scheduler < 0 || *scheduler > 2) {
+                fprintf(stderr,"    X [Choix Invalide, la taille doit être supérieur à 2!]\n");
                 *scheduler = 0;
-            } else{
-                printf("Le scheduler à été modifié\n");
+            } else {
+                printf("    ==> [Le scheduler à été modifié!]\n");
             }
             break;
         case 2: // TYPE Joueur
             setbuf(stdout, NULL);
-            printf("Indiquer le type du joueur:\n"
-                   "0. Joueur humain\n"
-                   "1. IA Simple\n"
-                   "2. IA Difficile\n");
+            printf("- Indiquer le type du joueur:\n"
+                   "    0. Joueur humain\n"
+                   "    1. IA Simple\n"
+                   "    2. IA Difficile\n");
             memcpy(type,&tmp, sizeof(int ));
             scanf("%d",type);
             if(tmp == *type){
-                fprintf(stderr,"Choix Invalide\n");
+                fprintf(stderr,"    X [Choix Invalide!]\n");
                 *type = 0;
                 while (getchar() != '\n');
             } else if (*type < 0 || *type > 2){
-                fprintf(stderr,"Choix Invalide, la taille doit être supérieur à 2\n");
+                fprintf(stderr,"    X [Choix Invalide, la taille doit être supérieur à 2!]\n");
                 *type = 0;
             } else{
-                printf("Le joueur à été modifié\n");
+                printf("    ==> [Le joueur à été modifié!]\n");
             }
             break;
         case 3:
-            fprintf(stdout,"Retour au menu principal...\n");
+            fprintf(stdout,"...Retour au menu principal...\n");
             break;
         default:
             setbuf(stdout, NULL);
-            fprintf(stderr,"Choix Invalide\n");
+            fprintf(stderr,"    X [Choix Invalide!]\n");
             while (getchar() != '\n');
     }
 }
